@@ -17,8 +17,8 @@
 typedef struct data_t_
 {
   char id[4];
-  float fval;
-  uint32_t ival;
+  float fval[2];
+  uint32_t ival[2];
 } data_t;
 #define DATA_SZ sizeof(data_t)
 
@@ -39,9 +39,10 @@ void setup()
   pinMode(OUT, OUTPUT);
 
   strcpy(dat.id, "ESPD");
-  dat.fval = 50.0f;
-  dat.ival = 0;
-
+  dat.fval[0] = 50.0f;
+  dat.fval[1] = 20.0f;
+  dat.ival[0] = 0;
+  dat.ival[1] = 0;
 }
 
 // the loop function runs over and over again forever
@@ -70,23 +71,21 @@ void loop()
 
   if (n > 200)
   {
-    dat.ival = (dat.ival + 1) % 100;
-    delta = (toggle_OUT ? 50 : 0);
+    dat.ival[0] = (toggle_OUT ? 10 : 0);
+    dat.ival[1] = (toggle_OUT ? 5 : 0);
+    delta = (toggle_OUT ? 1 : 0);
     toggle_OUT = !toggle_OUT;
 
     n = 0;
     digitalWrite(OUT, (uint8_t)toggle_OUT);
   }
   
-  dat.fval = delta + baseline;
+  dat.fval[0] = 50.0f + delta * 50.0f + baseline;
+  dat.fval[1] = 20.0f + delta * 20.0f + baseline * 0.5;
 
-  #ifdef C_READ
   uint8_t *bytes = (uint8_t *)&dat;
   Serial.write(bytes, DATA_SZ);
-  #else
-  Serial.println(val);
-  #endif
-
+  
   delay(10);
 
   n++;
