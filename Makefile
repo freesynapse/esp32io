@@ -1,0 +1,7 @@
+all : esp32io serial_write
+
+esp32io : esp32io.cpp serial.h plotter.h array.h types.h plotter_utils.h
+	g++ esp32io.cpp -ggdb -o esp32io -Iraylib/src/ -Lraylib/src/ -lraylib -lX11 -lpthread
+
+serial_write : serial_write.cpp types.h
+	g++ serial_write.cpp -ggdb -o serial_write
