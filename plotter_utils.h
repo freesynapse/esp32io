@@ -19,12 +19,12 @@ void __debug_Vector2(Vector2 _v, const char *_prefix="")
 class rc_t
 {
 public:
-    bool draw_subplot_div   = false;
+    bool draw_subplot_div   = true;
     Color div_color         = { 100, 100, 100, 255 };
     float div_line_width    = 2.0f;
 
     bool draw_axes          = true;
-    Vector2 axes_llim       = {  70.0f,  50.0f };
+    Vector2 axes_llim       = { 120.0f,  50.0f };
     Vector2 axes_rlim       = {  70.0f,  50.0f };
     Vector2 axes_hang       = {  20.0f,  20.0f };
     Color axes_color        = { 255, 255, 255, 255 };
@@ -32,11 +32,29 @@ public:
 
     bool draw_ticks         = false;
 
-    
+    bool draw_y_minmax      = true;
+    bool draw_title         = true;
+    bool draw_current_y     = true;
+
+    Color colors[6] = {
+        { 255,   0,   0, 255 },
+        {   0, 255,   0, 255 },
+        { 255,   0, 255, 255 },
+        {   0, 255, 255, 255 },
+        { 255, 255, 255, 255 },
+        {   0,   0, 255, 255 },
+    };
+
+    Font font18;
+    Color font18_color      = { 255, 255, 255, 255 };
+    Font font24;
+    Color font24_color      = { 255, 255, 255, 255 };
 
 };
 // global instance
-rc_t __global_rc;
+rc_t __rc;
+
+//
 
 //
 float nice_num(float _range, bool _round)

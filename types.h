@@ -6,6 +6,7 @@
 #include <vector>
 
 //
+// TODO : remove, replace with Vector2
 typedef struct 
 {
     int x;

@@ -11,15 +11,6 @@
 #include "types.h"
 #include "plotter_utils.h"
 
-Color colors[6] = {
-    { 255,   0,   0, 255 },
-    {   0, 255,   0, 255 },
-    { 255,   0, 255, 255 },
-    {   0, 255, 255, 255 },
-    { 255, 255, 255, 255 },
-    {   0,   0, 255, 255 },
-};
-
 //
 class Subplot
 {
@@ -29,14 +20,40 @@ public:
     {
         m_subplot_dims = { .x=(float)_subplot_dims.x, .y=(float)_subplot_dims.y };
         
-        if (__global_rc.draw_axes == true)
-            m_plotting_area = Vector2Subtract(Vector2Subtract(m_subplot_dims, __global_rc.axes_llim), __global_rc.axes_rlim);
+        if (__rc.draw_axes == true)
+            m_plotting_area = Vector2Subtract(Vector2Subtract(m_subplot_dims, __rc.axes_llim), __rc.axes_rlim);
         else
             m_plotting_area = m_subplot_dims;
 
         m_subplot_offset = { .x=(float)_offset.x, .y=(float)_offset.y };
-        m_vertices = new Vector2[_subplot_dims.x - (int)__global_rc.axes_llim.x];
+        m_vertices = new Vector2[_subplot_dims.x - (int)__rc.axes_llim.x];
         m_subplot_id = _subplot_id;
+
+        // calculate axes vertices
+        m_axes_vertices[0] = 
+        { 
+            .x = m_subplot_offset.x + __rc.axes_llim.x - __rc.axes_hang.x,
+            .y = m_subplot_offset.y + m_subplot_dims.y - __rc.axes_llim.y
+        };
+
+        m_axes_vertices[1] = 
+        { 
+            .x = m_subplot_offset.x + m_subplot_dims.x - __rc.axes_llim.x,
+            .y = m_subplot_offset.y + m_subplot_dims.y - __rc.axes_llim.y
+        };
+
+        m_axes_vertices[2] = 
+        {
+            .x = m_subplot_offset.x + __rc.axes_llim.x,
+            .y = m_subplot_offset.y + m_subplot_dims.y - __rc.axes_llim.y + __rc.axes_hang.y
+        };
+
+        m_axes_vertices[3] = 
+        {
+            .x = m_subplot_offset.x + __rc.axes_llim.x,
+            .y = m_subplot_offset.y + __rc.axes_rlim.y
+        };
+
     }
 
     //
@@ -55,43 +72,33 @@ public:
     void draw()
     {
         // draw the data
-        DrawLineStrip(m_vertices, m_vertex_count, colors[m_subplot_id]);
+        DrawLineStrip(m_vertices, m_vertex_count, __rc.colors[m_subplot_id]);
 
         // draw axes
-        if (__global_rc.draw_axes == true)
+        if (__rc.draw_axes)
         {
-            // TODO : move to calculate ONCE!
-            Vector2 h0 = 
-            { 
-                .x = m_subplot_offset.x + __global_rc.axes_llim.x - __global_rc.axes_hang.x,
-                .y = m_subplot_offset.y + m_subplot_dims.y - __global_rc.axes_llim.y
-            };
+            DrawLineEx(m_axes_vertices[0], m_axes_vertices[1], __rc.axes_line_width, __rc.axes_color);
+            DrawLineEx(m_axes_vertices[2], m_axes_vertices[3], __rc.axes_line_width, __rc.axes_color);
+        }
 
-            Vector2 h1 = 
-            { 
-                .x = m_subplot_offset.x + m_subplot_dims.x - __global_rc.axes_llim.x,
-                .y = m_subplot_offset.y + m_subplot_dims.y - __global_rc.axes_llim.y
-            };
+        if (__rc.draw_title)
+        {
+        }
 
-            Vector2 v0 =
-            {
-                .x = m_subplot_offset.x + __global_rc.axes_llim.x,
-                .y = m_subplot_offset.y + m_subplot_dims.y - __global_rc.axes_llim.y + __global_rc.axes_hang.y
-            };
+        if (__rc.draw_y_minmax)
+        {
+            char buf_min[16] = { 0 };
+            char buf_max[16] = { 0 };
+            sprintf(buf_min, "%.1f", m_lim.x);
+            sprintf(buf_max, "%.1f", m_lim.y);
+            printf("%s - %s\n", buf_min, buf_max);
+            DrawTextEx(__rc.font18, buf_min, Vector2Add(m_subplot_offset, { 20.0f, 20.0f }), (float)__rc.font18.baseSize, 2, __rc.font18_color);
+            DrawTextEx(__rc.font18, buf_max, Vector2Add(m_subplot_offset, { 20.0f, 32.0f }), (float)__rc.font18.baseSize, 2, __rc.font18_color);
+        }
 
-            Vector2 v1 =
-            {
-                .x = m_subplot_offset.x + __global_rc.axes_llim.x,
-                .y = m_subplot_offset.y + __global_rc.axes_rlim.y
-            };
-
-            // printf("subplot %zu: ", m_subplot_id);
-            // __debug_Vector2(m_subplot_offset, "m_subplot_offset");
-
-            DrawLineEx(h0, h1, __global_rc.axes_line_width, __global_rc.axes_color);
-            DrawLineEx(v0, v1, __global_rc.axes_line_width, __global_rc.axes_color);
-
-        }    
+        if (__rc.draw_current_y)
+        {
+        }
 
     }
 
@@ -106,7 +113,7 @@ public:
         {
             m_vertices[i].x = (float)i;
             
-            // the i:th element of the _data array
+            // address of the i:th element of the _data array
             data_t *data_at_idx = _data + i;
             
             // pointer tricks
@@ -144,21 +151,14 @@ public:
             m_vertices[i].y = scale_y_to_drawable(y);
 
             // translate by subplot and axes offset
-            m_vertices[i] = Vector2Add(m_vertices[i], Vector2Add(m_subplot_offset, __global_rc.axes_llim));
+            m_vertices[i] = Vector2Add(m_vertices[i], Vector2Add(m_subplot_offset, __rc.axes_llim));
 
         }
         
     }
 
-    // Accessors
     //
-    Vector2 get_offset()
-    { 
-        return { 
-            .x = (float)m_subplot_offset.x, 
-            .y = (float)m_subplot_offset.y
-        };
-    }
+    Vector2 get_offset() { return m_subplot_offset; }
 
 private:
     Vector2 m_subplot_dims = { 0 };
@@ -166,6 +166,8 @@ private:
     Vector2 m_subplot_offset = { 0 };
     Vector2 *m_vertices = nullptr;
     
+    Vector2 m_axes_vertices[4];
+
     size_t m_vertex_count = 0;
     size_t m_subplot_id = 0;
     
@@ -191,6 +193,7 @@ public:
             .y = _win_dims.y / _subplots_shape.y
         };
 
+        // create subplots
         for (int j = 0; j < _subplots_shape.y; j++)
         {
             // printf("j = %d\n", j);
@@ -240,22 +243,22 @@ public:
             subplot->draw();
         
         // draw subplot dividers
-        if (__global_rc.draw_subplot_div)
+        if (__rc.draw_subplot_div)
         {
             for (int i = 0; i < m_subplots_shape.x; i++)
             {
                 DrawLineEx({ .x = (float)m_subplot_dims.x * i, .y = 0.0f },
                             { .x = (float)m_subplot_dims.x * i, .y = (float)m_window_dims.y },
-                            __global_rc.div_line_width,
-                            __global_rc.div_color);
+                            __rc.div_line_width,
+                            __rc.div_color);
             }
 
             for (int j = 0; j < m_subplots_shape.y; j++)
             {
                 DrawLineEx({ .x = 0.0f, .y = (float)m_subplot_dims.y * j },
                             { .x = (float)m_window_dims.x, .y = (float)m_subplot_dims.y * j },
-                            __global_rc.div_line_width,
-                            __global_rc.div_color);
+                            __rc.div_line_width,
+                            __rc.div_color);
             }
 
         }
@@ -273,7 +276,15 @@ public:
     }
     size_t get_subplot_vertex_count()
     {   
-        return m_subplot_dims.x - __global_rc.axes_llim.x - __global_rc.axes_rlim.x;
+        return m_subplot_dims.x - __rc.axes_llim.x - __rc.axes_rlim.x;
+    }
+    Font *get_font_reg()
+    {
+        return &m_font_reg;
+    }
+    Font *get_font_title()
+    {
+        return &m_font_title;
     }
 
 private:
@@ -282,6 +293,9 @@ private:
     IVector2 m_subplot_dims = { 0 };
     size_t m_param_count = 0;
     std::vector<Subplot *> m_subplots;
+
+    Font m_font_reg;
+    Font m_font_title;
 
 };
 

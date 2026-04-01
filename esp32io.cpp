@@ -179,6 +179,9 @@ int main(int argc, char *argv[])
     __global_window_dim.y = 900;//GetScreenHeight();
     SetWindowPosition(0, 0);
     SetTargetFPS(60);
+    // load fonts
+    __rc.font18 = LoadFontEx("./font/UbuntuMono-Regular.ttf", 18, 0, 250);
+    __rc.font24 = LoadFontEx("./font/UbuntuMono-Regular.ttf", 24, 0, 250);
 
     // plotter, responsible for plotting interleaved serial data into subplots
     __global_plotter = new Plotter(__global_window_dim, 4, { 2, 2 });
@@ -192,7 +195,6 @@ int main(int argc, char *argv[])
     __global_data_buffer = new array_t<data_t>((size_t)subplot_width);
     __global_data_buffer_cpy = new array_t<data_t>((size_t)subplot_width);
     __global_data_time_buffer = new array_t<float>((size_t)subplot_width);
-    printf("subplot_width = %zu\n", subplot_width);
     
     // start ESP32 serial reading
     pthread_t esp32_read_thread_id;
