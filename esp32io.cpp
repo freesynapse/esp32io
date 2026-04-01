@@ -172,19 +172,25 @@ int main(int argc, char *argv[])
     serial.connect();
 
     // initalize raylib
-    SetConfigFlags(FLAG_WINDOW_TOPMOST | FLAG_WINDOW_UNDECORATED | FLAG_VSYNC_HINT);
-    SetTraceLogLevel(LOG_ERROR);
+    SetConfigFlags(FLAG_VSYNC_HINT); // FLAG_WINDOW_TOPMOST | FLAG_WINDOW_UNDECORATED | 
+    SetTraceLogLevel(LOG_WARNING);
     InitWindow(1600, 900, "ESP32 I/O");
     __global_window_dim.x = 1600;//GetScreenWidth();
     __global_window_dim.y = 900;//GetScreenHeight();
     SetWindowPosition(0, 0);
     SetTargetFPS(60);
     // load fonts
-    __rc.font18 = LoadFontEx("./font/UbuntuMono-Regular.ttf", 18, 0, 250);
-    __rc.font24 = LoadFontEx("./font/UbuntuMono-Regular.ttf", 24, 0, 250);
+    __rc.font18 = LoadFontEx("./font/UbuntuMono-Regular.ttf", __rc.font18_size, 0, 0);
+    __rc.font24 = LoadFontEx("./font/UbuntuMono-Regular.ttf", __rc.font24_size, 0, 0);
 
     // plotter, responsible for plotting interleaved serial data into subplots
-    __global_plotter = new Plotter(__global_window_dim, 4, { 2, 2 });
+    __global_plotter = new Plotter(__global_window_dim, 
+                                   4, 
+                                   { 2, 2 },
+                                   {"signal A", 
+                                    "signal B", 
+                                    "signal C", 
+                                    "signal D"});
 
     // dimension the data buffers (written under mutex lock from the serial thread)
     // the max size of the buffers is equal to the size (in pixels) of one of the 

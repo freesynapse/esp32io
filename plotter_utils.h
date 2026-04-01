@@ -12,7 +12,10 @@
 //
 void __debug_Vector2(Vector2 _v, const char *_prefix="")
 {
-    printf("Vector2 %s: [ %.2f  %.2f ]\n", _prefix, _v.x, _v.y);
+    if (strcmp(_prefix, "") != 0)
+        printf("%s: [ %.2f  %.2f ]\n", _prefix, _v.x, _v.y);
+    else
+        printf("Vector2: [ %.2f  %.2f ]\n", _v.x, _v.y);
 }
 
 // figure parameters
@@ -25,7 +28,7 @@ public:
 
     bool draw_axes          = true;
     Vector2 axes_llim       = { 120.0f,  50.0f };
-    Vector2 axes_rlim       = {  70.0f,  50.0f };
+    Vector2 axes_rlim       = {  70.0f, 100.0f };
     Vector2 axes_hang       = {  20.0f,  20.0f };
     Color axes_color        = { 255, 255, 255, 255 };
     float axes_line_width   = 1.0f;
@@ -45,16 +48,21 @@ public:
         {   0,   0, 255, 255 },
     };
 
+    // regular font
     Font font18;
+    float font18_size       = 18;
+    float font18_spacing    = 2;
     Color font18_color      = { 255, 255, 255, 255 };
+
+    // title font
     Font font24;
+    float font24_size       = 24;
+    float font24_spacing    = 2;
     Color font24_color      = { 255, 255, 255, 255 };
 
 };
 // global instance
 rc_t __rc;
-
-//
 
 //
 float nice_num(float _range, bool _round)
