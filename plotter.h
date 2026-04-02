@@ -35,7 +35,7 @@ public:
         // calculate axes vertices
         m_axes_vertices[0] = 
         { 
-            .x = m_subplot_offset.x + __rc.axes_llim.x - __rc.axes_hang.x,
+            .x = m_subplot_offset.x + __rc.axes_llim.x - __rc.axes_ticklength.x,
             .y = m_subplot_offset.y + m_subplot_dims.y - __rc.axes_llim.y
         };
 
@@ -48,7 +48,7 @@ public:
         m_axes_vertices[2] = 
         {
             .x = m_subplot_offset.x + __rc.axes_llim.x,
-            .y = m_subplot_offset.y + m_subplot_dims.y - __rc.axes_llim.y + __rc.axes_hang.y
+            .y = m_subplot_offset.y + m_subplot_dims.y - __rc.axes_llim.y + __rc.axes_ticklength.y
         };
 
         m_axes_vertices[3] = 
@@ -92,18 +92,21 @@ public:
                        __rc.font24_color);
         }
 
-        if (__rc.draw_y_minmax)
+        // TODO : remove when ticks are implemented
+        // draw y min and max values in 
+        /*
+        if (__rc.draw_y_minmax_vals)
         {
-            char buf_min[16] = { 0 };
             char buf_max[16] = { 0 };
-            sprintf(buf_min, "%.1f", m_lim.x);
             sprintf(buf_max, "%.1f", m_lim.y);
+            Vector2 max_sz = MeasureTextEx(__rc.font18, buf_max, __rc.font18_size, __rc.font18_spacing);
+            char buf_min[16] = { 0 };
+            sprintf(buf_min, "%.1f", m_lim.x);
             Vector2 min_sz = MeasureTextEx(__rc.font18, buf_min, __rc.font18_size, __rc.font18_spacing);
-            Vector2 max_sz = MeasureTextEx(__rc.font18, buf_min, __rc.font18_size, __rc.font18_spacing);
             DrawTextEx(__rc.font18, 
                        buf_min, 
                        {
-                           .x = m_axes_vertices[0].x - __rc.axes_hang.x - min_sz.x,
+                           .x = m_axes_vertices[0].x - __rc.axes_ticklength.x - min_sz.x,
                            .y = m_axes_vertices[0].y - min_sz.y * 0.5f
                        },
                        (float)__rc.font18.baseSize, 
@@ -113,14 +116,51 @@ public:
             DrawTextEx(__rc.font18, 
                        buf_max, 
                        {
-                           .x = m_axes_vertices[0].x - __rc.axes_hang.x - min_sz.x,
+                           .x = m_axes_vertices[0].x - __rc.axes_ticklength.x - max_sz.x,
                            .y = m_axes_vertices[3].y - min_sz.y * 0.5f
                        },
                        (float)__rc.font18.baseSize, 
                        __rc.font18_spacing, 
                        __rc.font18_color);
         }
+        */
 
+        //
+        if (__rc.draw_yticks)
+        {
+            for (size_t i = 0; i < m_yticks.size(); i += 2)
+            {
+                DrawLineEx(m_yticks[i+0], m_yticks[i+1], __rc.axes_line_width, __rc.axes_color);
+                const char *ytlbl = m_yticklabels[i / 2].c_str();
+                Vector2 sz = MeasureTextEx(__rc.font18, ytlbl, __rc.font18_size, __rc.font18_spacing);
+                DrawTextEx(__rc.font18,
+                           ytlbl,
+                           {
+                              .x = m_yticks[i+1].x - __rc.axes_ticklength.x - sz.x,
+                              .y = m_yticks[i+1].y - sz.y * 0.5f
+                           },
+                           (float)__rc.font18.baseSize,
+                           __rc.font18_spacing,
+                           __rc.font18_color);
+            }
+
+            // minimum ticklabel
+            char buf_min[16] = { 0 };
+            sprintf(buf_min, "%.1f", m_lim.x);
+            Vector2 min_sz = MeasureTextEx(__rc.font18, buf_min, __rc.font18_size, __rc.font18_spacing);
+            DrawTextEx(__rc.font18, 
+                       buf_min, 
+                       {
+                           .x = m_axes_vertices[0].x - __rc.axes_ticklength.x - min_sz.x,
+                           .y = m_axes_vertices[0].y - min_sz.y * 0.5f
+                       },
+                       (float)__rc.font18.baseSize, 
+                       __rc.font18_spacing, 
+                       __rc.font18_color);
+
+                    }
+
+        // draw the last value of y (i.e. signal)
         if (__rc.draw_current_y)
         {
             Vector2 sz = MeasureTextEx(__rc.font18, m_last_y, __rc.font18_size, __rc.font18_spacing);
@@ -157,7 +197,8 @@ public:
             //                    skip the first 4 bytes (char[4])     |
             // since all elements are 4 bytes (float and uint32_t), id * 4 will 
             // correspond to the id:th number in data_t
-            
+
+            // store range
             m_vertex_lim.x = MIN(m_vertex_lim.x, m_vertices[i].y);
             m_vertex_lim.y = MAX(m_vertex_lim.y, m_vertices[i].y);
         }
@@ -170,36 +211,98 @@ public:
             sprintf(m_last_y, "%.2f", val);
         }
 
-        // scale and translate to subplot offset
+        // scale and translate to subplot offset 
+        // -- only update range if values have changed
         scale_vertices();
 
     }
 
     void scale_vertices()
     {
-        // calculate a nice y range
-        float range = m_vertex_lim.y - m_vertex_lim.x;
-        // float min20 = MIN(m_vertex_lim.x - 0.20f * range, 0);
-        // float max20 = m_vertex_lim.y + 0.20f * range;
-        // m_lim = calculate_range(min20, max20);
         m_vertex_lim.x = MIN(m_vertex_lim.x, 0.0f);
-        m_lim = calculate_range(m_vertex_lim.x, m_vertex_lim.y);
-        
-        // scaling
+        float vertex_range = m_vertex_lim.y - m_vertex_lim.x;
+
+        // only update range/limits and ticks etc if vertex range has changed
+        if (vertex_range != m_prev_vertex_range)
+        {
+            // calculate a nice y range
+            m_lim = calculate_range(m_vertex_lim.x, m_vertex_lim.y, &m_ytick_spacing);
+            float range = m_lim.y - m_lim.x;
+            m_ytick_count = range / m_ytick_spacing;
+            
+            if (!isnan(range))
+            {
+                m_yticks.clear();
+                m_yticklabels.clear();
+
+                //
+                float y = m_lim.x;
+                do
+                {
+                    y += m_ytick_spacing;
+                    Vector2 ytick0 = 
+                    { 
+                        .x = 0.0f,
+                        .y = y
+                    };
+                    Vector2 ytick1 = ytick0;
+                    ytick1.x -= __rc.axes_ticklength.x;
+
+                    char buffer[16] = { 0 };
+                    sprintf(buffer, "%.1f", ytick0.y);
+                    m_yticklabels.push_back(std::string(buffer));
+
+                    // scale and transform to plotting area at subplot offset
+                    scale_and_translate(&ytick0);
+                    scale_and_translate(&ytick1);
+                    m_yticks.push_back(ytick0);
+                    m_yticks.push_back(ytick1);
+
+                } while (y < m_lim.y);
+            }
+
+        }
+
+        m_prev_vertex_range = vertex_range;
+
+        // scaling and translating vertices
         for (int i = 0; i < m_vertex_count; i++)
         {
-            float y = m_vertices[i].y;
-            // scale to limits
-            y = (y - m_lim.x) / (m_lim.y - m_lim.x);
-            // from fraction [0..1] to pixels [0..drawable.y]
-            m_vertices[i].y = (y * m_plotting_area.y);
-            // translate by subplot and axes offset
-            m_vertices[i] = 
-            {
-                .x = m_vertices[i].x + m_subplot_offset.x + __rc.axes_llim.x,
-                .y = m_subplot_dims.y + m_subplot_offset.y - __rc.axes_llim.y - m_vertices[i].y
-            };
+            // scale to [0..1] and translate by subplot and axes offset
+            scale_and_translate(&m_vertices[i]);
         }
+    }
+
+    //
+    void scale_to_plotting_area(Vector2 *_v)
+    {
+        // scale to limits
+        float y = (_v->y - m_lim.x) / (m_lim.y - m_lim.x);
+        // from fraction [0..1] to pixels [0..drawable.y]
+        float y_frac = (y * m_plotting_area.y);
+        
+        _v->y = y_frac;
+        // return y_frac;
+    }
+
+    //
+    void translate_to_subplot(Vector2 *_v)
+    {
+        Vector2 v = 
+        {
+            .x = _v->x + m_subplot_offset.x + __rc.axes_llim.x,
+            .y = m_subplot_dims.y + m_subplot_offset.y - __rc.axes_llim.y - _v->y
+        };
+
+        *_v = v; 
+        // return v;
+    }
+
+    //
+    void scale_and_translate(Vector2 *_v)
+    {
+        scale_to_plotting_area(_v);
+        translate_to_subplot(_v);
     }
 
     //
@@ -222,7 +325,12 @@ private:
     size_t m_subplot_id = 0;
     
     Vector2 m_vertex_lim = { 1e6, -1e6 };
+    float m_prev_vertex_range = -1.0f;    
     Vector2 m_lim = { 0 };
+    float m_ytick_spacing = 0.0f;
+    size_t m_ytick_count = 0;
+    std::vector<Vector2> m_yticks;
+    std::vector<std::string> m_yticklabels;
 
     size_t m_current_iteration = 0;
 };

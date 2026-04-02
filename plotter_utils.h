@@ -29,13 +29,13 @@ public:
     bool draw_axes          = true;
     Vector2 axes_llim       = { 120.0f,  50.0f };
     Vector2 axes_rlim       = {  70.0f, 100.0f };
-    Vector2 axes_hang       = {  20.0f,  20.0f };
+    float max_ticks         = 5.0f;
+    Vector2 axes_ticklength = {  20.0f,  20.0f };
     Color axes_color        = { 255, 255, 255, 255 };
     float axes_line_width   = 1.0f;
 
-    bool draw_ticks         = false;
-
-    bool draw_y_minmax      = true;
+    bool draw_y_minmax_vals = true;
+    bool draw_yticks        = true;
     bool draw_title         = true;
     bool draw_current_y     = true;
 
@@ -98,18 +98,17 @@ float nice_num(float _range, bool _round)
 }
 
 //
-Vector2 calculate_range(float _min, float _max)
+Vector2 calculate_range(float _min, float _max, float *_tick_spacing)
 {
-    static float max_ticks = 10.0f;
     float range = nice_num(_max - _min, false);
 
-    float tick_spacing = nice_num(range / (max_ticks - 1.0f), true);
+    float tick_spacing = nice_num(range / (__rc.max_ticks - 1.0f), true);
     Vector2 nice_lim = { 0 };
     nice_lim.x = floor(_min / tick_spacing) * tick_spacing;
     nice_lim.y = ceil(_max / tick_spacing) * tick_spacing;
     
     // update parameters
-    // range = nice_lim.y - nice_lim.x;
+    *_tick_spacing = tick_spacing;
     return nice_lim;
 }
 
