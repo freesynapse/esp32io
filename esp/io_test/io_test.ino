@@ -18,18 +18,22 @@ typedef struct data_t_
 {
   char id[4];
   float fval[2];
-  uint32_t ival[2];
+  int32_t ival[2];
 } data_t;
 #define DATA_SZ sizeof(data_t)
 
-data_t dat;
+data_t dat = { 0 };
 uint32_t baseline = 10;
 uint32_t delta = 50;
 
 uint32_t n = 0;
 bool toggle_OUT = false;
 
-char input_cmd = 0;
+typedef struct
+{
+  uint32_t ival;
+} read_data_t;
+read_data_t input_data = { 0 };
 
 //
 void setup()
@@ -41,7 +45,7 @@ void setup()
   strcpy(dat.id, "ESPD");
   dat.fval[0] = 50.0f;
   dat.fval[1] = 20.0f;
-  dat.ival[0] = 0;
+  dat.ival[0] = 1;
   dat.ival[1] = 0;
 }
 
@@ -51,27 +55,13 @@ void loop()
   // read from usb
   if (Serial.available())
   {
-    input_cmd = Serial.read();
-    switch (input_cmd)
-    {
-      case KEY_W:
-        if (baseline < 90)
-          baseline += 10; 
-        break;
-      
-      case KEY_S:
-        if (baseline > 10)
-          baseline -= 10;
-        break;
-      
-      default:
-        break;
-    }
+    Serial.readBytes((char *)&input_data, sizeof(read_data_t));
+    dat.ival[0] = input_data.ival;
+    
   }
 
   if (n > 200)
   {
-    dat.ival[0] = (toggle_OUT ? 10 : 0);
     dat.ival[1] = (toggle_OUT ? 5 : 0);
     delta = (toggle_OUT ? 1 : 0);
     toggle_OUT = !toggle_OUT;

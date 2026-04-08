@@ -12,6 +12,7 @@
 #define BAUDRATE        B115200
 #define RETURN_SUCCESS        0
 #define RETURN_FAILURE        1
+#define ESP32_DATA_SZ      1024  // upper read limit (in bytes), not packet size
 
 
 //
@@ -44,11 +45,8 @@ public:
         
         m_fd = open(m_port.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
         if (m_fd < 0)
-        {
-            fprintf(stderr, "ERROR %d: opening %s: %s\n", errno, m_port.c_str(), 
-                    strerror (errno));
             return RETURN_FAILURE;
-        }
+
         usleep(100000);
 
         // serial port parameters
@@ -78,19 +76,21 @@ public:
     int recieve()
     {
         memset(m_buffer, 0, m_dataSz);
-        int n = read(m_fd, m_buffer, m_dataSz);  // read up to 100 characters if ready to read
+        int n = read(m_fd, m_buffer, m_dataSz);
         return n;
     }
 
     //
-    int send(char _ch)
+    int send(void *_data, size_t _n_bytes)
     {
-        return  write(m_fd, &_ch, 1);
+        int n = write(m_fd, _data, _n_bytes);
+        return n;
     }
 
     // accessors
     char *data()        {   return m_buffer;    }
     size_t data_size()  {   return m_dataSz;    }
+    void flush()        {   tcflush(m_fd, TCIFLUSH); }
 
 
 public:
@@ -103,7 +103,7 @@ public:
 
 };
 
-
+SerialESP32 *__global_serial_esp32 = nullptr;
 
 
 

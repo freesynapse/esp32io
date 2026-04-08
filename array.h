@@ -27,7 +27,6 @@ public:
         delete[] data_ptr;
         capacity = 0;
         size = 0;
-        // printf("%s(): array memory deleted.\n", __func__);
     }
 
     //
@@ -48,15 +47,6 @@ public:
         
         return capacity;
     }
-
-    //
-    void __debug_print()
-    {
-        printf("%s(): array.print()\n", __func__);
-        for (size_t i = 0; i < size; i++)
-            printf("\tarray[%zu].f = %.1f\n", i, data_ptr[i].f);
-    }
-
     //
     size_t capacity = 0;
     T *data_ptr = nullptr;
@@ -64,26 +54,5 @@ public:
 
 };
 
-/*
-//
-typedef struct
-{
-    float f;
-    int i;
-    
-} data_t;
-
-//
-int main()
-{
-    Array<data_t> array(4);
-    for (int i = 0; i < 20; i++)
-    {
-        array.push({.f=(float)i, .i=i});
-        array.print();
-    }
-    return 0;
-}
-*/
 
 #endif // __ARRAY_H

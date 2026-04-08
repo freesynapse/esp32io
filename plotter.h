@@ -11,18 +11,21 @@
 
 #include "types.h"
 #include "plotter_utils.h"
+#include "thread.h"
+#include "timer.h"
+
 
 //
 class Subplot
 {
 public:
     //
-    Subplot(IVector2 _subplot_dims, IVector2 _offset, size_t _subplot_id, const std::string &_title)
+    Subplot(Vector2 _subplot_dims, Vector2 _offset, size_t _subplot_id, const std::string &_title)
     {
         m_subplot_id = _subplot_id;
-        m_subplot_dims = { .x=(float)_subplot_dims.x, .y=(float)_subplot_dims.y };
-        m_subplot_offset = { .x = (float)_offset.x, .y = (float)_offset.y };
-        m_vertices = new Vector2[_subplot_dims.x - (int)__rc.axes_llim.x];
+        m_subplot_dims = { .x=_subplot_dims.x, .y=_subplot_dims.y };
+        m_subplot_offset = { .x = _offset.x, .y = _offset.y };
+        m_vertices = new Vector2[(int)_subplot_dims.x - (int)__rc.axes_llim.x];
         
         if (__rc.draw_axes == true)
             m_plotting_area = Vector2Subtract(Vector2Subtract(m_subplot_dims, __rc.axes_llim), __rc.axes_rlim);
@@ -80,50 +83,10 @@ public:
 
         if (__rc.draw_title)
         {
-            Vector2 sz = MeasureTextEx(__rc.font24, m_title.c_str(), __rc.font24_size, __rc.font24_spacing);
-            DrawTextEx(__rc.font24,
-                       m_title.c_str(),
-                        {
-                            .x = m_subplot_offset.x + m_subplot_dims.x * 0.5f - sz.x * 0.5f,
-                            .y = m_subplot_offset.y + __rc.axes_rlim.y * 0.5f - sz.y * 0.5f
-                        },
-                       __rc.font24.baseSize,
-                       __rc.font24_spacing,
-                       __rc.font24_color);
+            Vector2 sz = measure_text_large(m_title.c_str());
+            draw_text_large(m_title.c_str(), { .x = m_subplot_offset.x + m_subplot_dims.x * 0.5f - sz.x * 0.5f, 
+                                               .y = m_subplot_offset.y + __rc.axes_rlim.y * 0.5f - sz.y * 0.5f });
         }
-
-        // TODO : remove when ticks are implemented
-        // draw y min and max values in 
-        /*
-        if (__rc.draw_y_minmax_vals)
-        {
-            char buf_max[16] = { 0 };
-            sprintf(buf_max, "%.1f", m_lim.y);
-            Vector2 max_sz = MeasureTextEx(__rc.font18, buf_max, __rc.font18_size, __rc.font18_spacing);
-            char buf_min[16] = { 0 };
-            sprintf(buf_min, "%.1f", m_lim.x);
-            Vector2 min_sz = MeasureTextEx(__rc.font18, buf_min, __rc.font18_size, __rc.font18_spacing);
-            DrawTextEx(__rc.font18, 
-                       buf_min, 
-                       {
-                           .x = m_axes_vertices[0].x - __rc.axes_ticklength.x - min_sz.x,
-                           .y = m_axes_vertices[0].y - min_sz.y * 0.5f
-                       },
-                       (float)__rc.font18.baseSize, 
-                       __rc.font18_spacing, 
-                       __rc.font18_color);
-
-            DrawTextEx(__rc.font18, 
-                       buf_max, 
-                       {
-                           .x = m_axes_vertices[0].x - __rc.axes_ticklength.x - max_sz.x,
-                           .y = m_axes_vertices[3].y - min_sz.y * 0.5f
-                       },
-                       (float)__rc.font18.baseSize, 
-                       __rc.font18_spacing, 
-                       __rc.font18_color);
-        }
-        */
 
         //
         if (__rc.draw_yticks)
@@ -132,47 +95,26 @@ public:
             {
                 DrawLineEx(m_yticks[i+0], m_yticks[i+1], __rc.axes_line_width, __rc.axes_color);
                 const char *ytlbl = m_yticklabels[i / 2].c_str();
-                Vector2 sz = MeasureTextEx(__rc.font18, ytlbl, __rc.font18_size, __rc.font18_spacing);
-                DrawTextEx(__rc.font18,
-                           ytlbl,
-                           {
-                              .x = m_yticks[i+1].x - __rc.axes_ticklength.x - sz.x,
-                              .y = m_yticks[i+1].y - sz.y * 0.5f
-                           },
-                           (float)__rc.font18.baseSize,
-                           __rc.font18_spacing,
-                           __rc.font18_color);
+                Vector2 sz = measure_text(ytlbl);
+                draw_text(ytlbl, { .x = m_yticks[i+1].x - __rc.axes_ticklength.x - sz.x,
+                                   .y = m_yticks[i+1].y - sz.y * 0.5f });
             }
 
             // minimum ticklabel
             char buf_min[16] = { 0 };
             sprintf(buf_min, "%.1f", m_lim.x);
-            Vector2 min_sz = MeasureTextEx(__rc.font18, buf_min, __rc.font18_size, __rc.font18_spacing);
-            DrawTextEx(__rc.font18, 
-                       buf_min, 
-                       {
-                           .x = m_axes_vertices[0].x - __rc.axes_ticklength.x - min_sz.x,
-                           .y = m_axes_vertices[0].y - min_sz.y * 0.5f
-                       },
-                       (float)__rc.font18.baseSize, 
-                       __rc.font18_spacing, 
-                       __rc.font18_color);
+            Vector2 min_sz = measure_text(buf_min);
+            draw_text(buf_min, { .x = m_axes_vertices[0].x - __rc.axes_ticklength.x - min_sz.x,
+                                 .y = m_axes_vertices[0].y - min_sz.y * 0.5f });
 
-                    }
+        }
 
         // draw the last value of y (i.e. signal)
         if (__rc.draw_current_y)
         {
-            Vector2 sz = MeasureTextEx(__rc.font18, m_last_y, __rc.font18_size, __rc.font18_spacing);
-            DrawTextEx(__rc.font18, 
-                       m_last_y,
-                       {
-                           .x = m_axes_vertices[1].x - sz.x,
-                           .y = m_axes_vertices[3].y - 15.0f - sz.y * 0.5f
-                       },
-                       (float)__rc.font18.baseSize,
-                       __rc.font18_spacing,
-                       __rc.font18_color);
+            Vector2 sz = measure_text(m_last_y);
+            draw_text(m_last_y, { .x = m_axes_vertices[1].x - sz.x,
+                                  .y = m_axes_vertices[3].y - 15.0f - sz.y * 0.5f });
         }
 
     }
@@ -181,6 +123,17 @@ public:
     template<typename T>
     void copy_data_to_vertices(data_t *_data, size_t _n)
     {
+        static double scale_timer0 = GetTime();
+        double scale_timer1 = GetTime();
+        // reset vertex limits every 2 seconds
+        if (scale_timer1 - scale_timer0 >= 2.0f)
+        {
+            scale_timer0 = GetTime();
+            m_vertex_lim = { 1e6, -1e6 };
+            m_force_rescaling = true;
+        }
+
+        // copy data
         m_vertex_count = _n;
         for (size_t i = 0; i < m_vertex_count; i++)
         {
@@ -222,9 +175,12 @@ public:
         m_vertex_lim.x = MIN(m_vertex_lim.x, 0.0f);
         float vertex_range = m_vertex_lim.y - m_vertex_lim.x;
 
-        // only update range/limits and ticks etc if vertex range has changed
-        if (vertex_range != m_prev_vertex_range)
+        // Only update range/limits and ticks etc if vertex range has changed 
+        // OR every 5 seconds
+        if (vertex_range != m_prev_vertex_range || m_force_rescaling)
         {
+            m_force_rescaling = false;
+
             // calculate a nice y range
             m_lim = calculate_range(m_vertex_lim.x, m_vertex_lim.y, &m_ytick_spacing);
             float range = m_lim.y - m_lim.x;
@@ -307,7 +263,7 @@ public:
 
     //
     Vector2 get_offset() { return m_subplot_offset; }
-    void set_current_iteration(size_t _it) { m_current_iteration = _it; }
+    void set_frame_count(size_t _fc) { m_frame_count = _fc; }
 
 private:
     Vector2 m_subplot_dims = { 0 };
@@ -325,6 +281,7 @@ private:
     size_t m_subplot_id = 0;
     
     Vector2 m_vertex_lim = { 1e6, -1e6 };
+    bool m_force_rescaling = false;
     float m_prev_vertex_range = -1.0f;    
     Vector2 m_lim = { 0 };
     float m_ytick_spacing = 0.0f;
@@ -332,7 +289,7 @@ private:
     std::vector<Vector2> m_yticks;
     std::vector<std::string> m_yticklabels;
 
-    size_t m_current_iteration = 0;
+    size_t m_frame_count = 0;
 };
 
 //
@@ -340,7 +297,7 @@ class Plotter
 {
 public:
     //
-    Plotter(IVector2 _win_dims, size_t _n_params, IVector2 _subplots_shape, const std::vector<std::string> &_titles)
+    Plotter(Vector2 _win_dims, size_t _n_params, Vector2 _subplots_shape, const std::vector<std::string> &_titles)
     {
         m_window_dims = _win_dims;
         m_param_count = _n_params;
@@ -356,10 +313,11 @@ public:
             __rc.draw_title = false;
         }
 
+        // make room for menu bar
         m_subplot_dims = 
         {
             .x = _win_dims.x / _subplots_shape.x,
-            .y = _win_dims.y / _subplots_shape.y
+            .y = (_win_dims.y - __rc.menu_bar_height) / _subplots_shape.y
         };
 
         // create subplots
@@ -370,7 +328,7 @@ public:
             {
                 // printf("i = %d\n", i);
                 int idx = j * _subplots_shape.x + i;
-                IVector2 subplot_offset = 
+                Vector2 subplot_offset = 
                 {
                     .x = m_subplot_dims.x * i,
                     .y = m_subplot_dims.y * j
@@ -396,8 +354,9 @@ public:
         {
             switch (data_t_types[i])
             {
-            case types::FLOAT:  m_subplots[i]->copy_data_to_vertices<float>(_data, _element_count); break;
-            case types::UINT32: m_subplots[i]->copy_data_to_vertices<int>(_data, _element_count); break;
+            case FLOAT:  m_subplots[i]->copy_data_to_vertices<float>(_data, _element_count); break;
+            case UINT32: m_subplots[i]->copy_data_to_vertices<uint32_t>(_data, _element_count); break;
+            case INT32:  m_subplots[i]->copy_data_to_vertices<int32_t>(_data, _element_count); break;
             }
            
             
@@ -407,12 +366,12 @@ public:
     //
     void draw()
     {
-        static size_t it = 0;
+        static size_t frame_count = 0;
 
         // draw subplots
         for (auto &subplot : m_subplots)
         {
-            subplot->set_current_iteration(it);
+            subplot->set_frame_count(frame_count);
             subplot->draw();
         }
         
@@ -421,23 +380,42 @@ public:
         {
             for (int i = 0; i < m_subplots_shape.x; i++)
             {
-                DrawLineEx({ .x = (float)m_subplot_dims.x * i, .y = 0.0f },
-                            { .x = (float)m_subplot_dims.x * i, .y = (float)m_window_dims.y },
-                            __rc.div_line_width,
-                            __rc.div_color);
+                DrawLineEx({ .x = m_subplot_dims.x * i, .y = 0.0f },
+                           { .x = m_subplot_dims.x * i, .y = m_window_dims.y - __rc.menu_bar_height },
+                           __rc.div_line_width,
+                           __rc.div_color);
             }
 
             for (int j = 0; j < m_subplots_shape.y; j++)
             {
-                DrawLineEx({ .x = 0.0f, .y = (float)m_subplot_dims.y * j },
-                            { .x = (float)m_window_dims.x, .y = (float)m_subplot_dims.y * j },
-                            __rc.div_line_width,
-                            __rc.div_color);
+                DrawLineEx({ .x = 0.0f, .y = m_subplot_dims.y * j },
+                           { .x = m_window_dims.x, .y = m_subplot_dims.y * j },
+                           __rc.div_line_width,
+                           __rc.div_color);
             }
 
         }
 
-        it++;
+        // draw menu bar divider and basic info
+        if (__rc.menu_bar_height > 0.0f)
+        {
+            DrawLineEx({ .x = 0.0f, .y = m_window_dims.y - __rc.menu_bar_height },
+                       { .x = m_window_dims.x, .y = m_window_dims.y - __rc.menu_bar_height },
+                       __rc.div_line_width,
+                       __rc.div_color);
+            const char *info_text = "F1: help";
+            // Vector2 info_sz = measure_text(info_text);
+            draw_text(info_text, { .x = 5.0f, .y = m_window_dims.y - __rc.menu_bar_height + 5.0f });
+
+            char buffer[64] = { 0 };
+            pthread_mutex_lock(&__global_esp32_signal_freq_mtx);
+            sprintf(buffer, "signal: %.2f Hz", __global_esp32_signal_freq);
+            pthread_mutex_unlock(&__global_esp32_signal_freq_mtx);
+            Vector2 sz = measure_text(buffer);
+            draw_text(buffer, { .x = m_window_dims.x - sz.x - 5.0f, .y = m_window_dims.y - __rc.menu_bar_height + 5.0f });
+        }
+
+        frame_count++;
     }
 
     // Accessors
@@ -446,7 +424,7 @@ public:
     {
         return m_subplots[_subplot_id]->get_offset();
     }
-    IVector2 get_subplot_dims()
+    Vector2 get_subplot_dims()
     {
         return m_subplot_dims;
     }
@@ -464,9 +442,9 @@ public:
     }
 
 private:
-    IVector2 m_window_dims = { 0 };
-    IVector2 m_subplots_shape = { 0 };
-    IVector2 m_subplot_dims = { 0 };
+    Vector2 m_window_dims = { 0 };
+    Vector2 m_subplots_shape = { 0 };
+    Vector2 m_subplot_dims = { 0 };
     size_t m_param_count = 0;
     std::vector<Subplot *> m_subplots;
 
