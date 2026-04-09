@@ -126,26 +126,12 @@ void *read_ESP32_data(void *_connection)
                 tnow = (timeval1.tv_sec + timeval1.tv_usec * 1e-6) - tstart;
                 
                 // push the data
-                //if (sample_count >= __global_sample_count)
-                //{
-                //    data_t dat_acc = { 0 };
-                //    memcpy(dat_acc.id, __global_packet_id, __global_packet_id_len);
-                //    for (size_t i = 0; i < sample_count; i++)
-                //    {
-                //        dat_acc.fval[0]
-                //    }
                 pthread_mutex_lock(&__global_data_mtx);                
                 __global_data_buffer->push(dat);
                 __global_data_time_buffer->push(tnow);
                 // TODO : make this more general somehow?
                 __global_write_data.ival = dat.ival[0];
                 pthread_mutex_unlock(&__global_data_mtx);
-                //}
-                //else
-                //{
-                //    samples[sample_count++] = dat;
-                //}
-
             }
 
             // calculate and store frequency of incoming packets
@@ -230,7 +216,7 @@ void initialize_data_arrays()
     // Plotter's subplots. The size is also adjusted for the __global_sample_count; 
     // all data are captured from serial in data_t packets and the Plotter handles 
     // averaging of the signal based on the sampling rate / count.
-    
+    //
     size_t sz = __global_plotter->get_subplot_vertex_count() * __global_sample_count;
 
     pthread_mutex_lock(&__global_data_mtx);
@@ -276,12 +262,13 @@ int main(int argc, char *argv[])
     //__global_window_dim.y = GetScreenHeight();
     //SetWindowPosition(0, 0);
     InitWindow(1600, 900, "ESP32 I/O");
-    __global_window_dim.x = 1600;//GetScreenWidth();
-    __global_window_dim.y = 900;//GetScreenHeight();
-    SetWindowPosition(GetScreenWidth(), 0);
-    LOG_INFO("Window size: %d x %d\n", GetScreenWidth(), GetScreenHeight());
+    __global_window_dim.x = 1600;
+    __global_window_dim.y = 900;
+    SetWindowPosition(0, 0);
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
+    
+    LOG_INFO("Window size: %d x %d\n", GetScreenWidth(), GetScreenHeight());
     // load fonts
     __rc.font18 = LoadFontEx("./font/UbuntuMono-Regular.ttf", __rc.font18_size, 0, 0);
     __rc.font24 = LoadFontEx("./font/UbuntuMono-Regular.ttf", __rc.font24_size, 0, 0);

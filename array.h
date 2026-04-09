@@ -20,7 +20,6 @@ public:
         data_ptr = new T[_capacity];
         size = 0;
         capacity = _capacity;
-        // LOG_INFO("%ld elements allocated (%ld bytes).\n", capacity, sizeof(T) * capacity);
     }
 
     //
