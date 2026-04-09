@@ -134,7 +134,7 @@ public:
 
     // variables
     std::vector<kv_t> kvs;
-    size_t n_params = 1000;
+    size_t n_params = 0;
     Vector2 subplots_shape = { 0 };
     std::vector<std::string> titles = {};
 };
