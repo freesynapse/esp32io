@@ -16,7 +16,6 @@ The list is non-exhaustive, it's just the ones I tested. In the testing setup, a
 
 Also included in the repo is serial_write, a debugging app, which writes data serially to one of the /dev/pts ttys.
 
-Screenshot
 ![alt text](https://github.com/freesynapse/esp32io/blob/main/screenshot.png)
 
 
