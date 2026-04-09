@@ -13,7 +13,7 @@
 #include "plotter_utils.h"
 #include "thread.h"
 #include "timer.h"
-
+#include "config_parser.h"
 
 //
 class Subplot
@@ -304,46 +304,20 @@ private:
 class Plotter
 {
 public:
-    //
-    Plotter(Vector2 _win_dims, size_t _n_params, Vector2 _subplots_shape, const std::vector<std::string> &_titles={})
+    // configuration file
+    Plotter(Vector2 _win_dims, const char *_config_file_path)
     {
-        m_window_dims = _win_dims;
-        m_param_count = _n_params;
-        m_subplots_shape = _subplots_shape;
-
-        std::vector<std::string> titles = _titles;
-        if (titles.size() != _n_params && __rc.draw_title == true)
-        {
-            LOG_WARNING("Invalid size of std::vector<std::string> &_titles, auto-generating.\n");
-            titles.clear();
-            for (size_t i = 0; i < m_param_count; i++)
-                titles.push_back("variable_" + std::to_string(i));
-        }
-
-        // make room for menu bar
-        m_subplot_dims = 
-        {
-            .x = _win_dims.x / _subplots_shape.x,
-            .y = (_win_dims.y - __rc.menu_bar_height) / _subplots_shape.y
-        };
-
-        // create subplots
-        for (int j = 0; j < _subplots_shape.y; j++)
-        {
-            for (int i = 0; i < _subplots_shape.x; i++)
-            {
-                int idx = j * _subplots_shape.x + i;
-                Vector2 subplot_offset = 
-                {
-                    .x = m_subplot_dims.x * i,
-                    .y = m_subplot_dims.y * j
-                };
-
-                m_subplots.push_back(new Subplot(m_subplot_dims, subplot_offset, (size_t)idx, titles[idx]));
-            }
-        }
+        LOG_INFO("Reading plotter configuration from '%s'.\n", _config_file_path);
+        ConfigParser parser(_config_file_path);
+        initialize(_win_dims, parser.n_params, parser.subplots_shape, parser.titles);
     }
     
+    // explicit declaration
+    Plotter(Vector2 _win_dims, size_t _n_params, Vector2 _subplots_shape, const std::vector<std::string> &_titles={})
+    {
+        initialize(_win_dims, _n_params, _subplots_shape, _titles);
+    }
+
     //
     ~Plotter()
     {
@@ -447,6 +421,47 @@ public:
     {
         return &m_font_title;
     }
+
+private:
+    void initialize(Vector2 _win_dims, size_t _n_params, Vector2 _subplots_shape, const std::vector<std::string> &_titles={})
+    {
+        m_window_dims = _win_dims;
+        m_param_count = _n_params;
+        m_subplots_shape = _subplots_shape;
+
+        std::vector<std::string> titles = _titles;
+        if (titles.size() != _n_params && __rc.draw_title == true)
+        {
+            LOG_WARNING("Invalid size of std::vector<std::string> &_titles, auto-generating.\n");
+            titles.clear();
+            for (size_t i = 0; i < m_param_count; i++)
+                titles.push_back("variable_" + std::to_string(i));
+        }
+
+        // make room for menu bar
+        m_subplot_dims = 
+        {
+            .x = _win_dims.x / _subplots_shape.x,
+            .y = (_win_dims.y - __rc.menu_bar_height) / _subplots_shape.y
+        };
+
+        // create subplots
+        for (int j = 0; j < _subplots_shape.y; j++)
+        {
+            for (int i = 0; i < _subplots_shape.x; i++)
+            {
+                int idx = j * _subplots_shape.x + i;
+                Vector2 subplot_offset = 
+                {
+                    .x = m_subplot_dims.x * i,
+                    .y = m_subplot_dims.y * j
+                };
+
+                m_subplots.push_back(new Subplot(m_subplot_dims, subplot_offset, (size_t)idx, titles[idx]));
+            }
+        }
+    }
+    
 
 private:
     Vector2 m_window_dims = { 0 };

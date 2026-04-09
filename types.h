@@ -19,9 +19,9 @@ char *__debug_trace_fmt(const char *_file, const char* _func, int _line)
     memset(__debug_trace_buffer + n, ' ', __debug_trace_width - n);
     return __debug_trace_buffer;
 }
-#define LOG_INFO(msg, ...) fprintf(stderr, "%s [INFO]    " msg "", __debug_trace_fmt(__FILE__, __func__, __LINE__), ##__VA_ARGS__)
-#define LOG_WARNING(msg, ...) fprintf(stderr, "%s [WARNING] " msg "", __debug_trace_fmt(__FILE__, __func__, __LINE__), ##__VA_ARGS__)
-#define LOG_ERROR(msg, ...) fprintf(stderr, "%s [ERROR]   " msg "", __debug_trace_fmt(__FILE__, __func__, __LINE__), ##__VA_ARGS__)
+#define LOG_INFO(msg, ...) do { fprintf(stderr, "%s [INFO]    " msg "", __debug_trace_fmt(__FILE__, __func__, __LINE__), ##__VA_ARGS__); } while(0)
+#define LOG_WARNING(msg, ...) do { fprintf(stderr, "%s [WARNING] " msg "", __debug_trace_fmt(__FILE__, __func__, __LINE__), ##__VA_ARGS__); } while(0)
+#define LOG_ERROR(msg, ...) do { fprintf(stderr, "%s [ERROR]   " msg "", __debug_trace_fmt(__FILE__, __func__, __LINE__), ##__VA_ARGS__); } while(0)
 #define ARRAY_LEN(x) (sizeof((x)) / sizeof((x)[0]))
 //
 // ESP32-related data structures
@@ -44,7 +44,7 @@ size_t __global_packet_id_len = strlen(__global_packet_id);
 // sampling count -- how many data packets (when plotting) are averaged
 #define MIN_SAMPLE_COUNT  1
 #define MAX_SAMPLE_COUNT 16
-float __global_sample_count = 2.0f;
+float __global_sample_count = 1.0f;
 
 // for reflection of the data types in data_t
 typedef enum 

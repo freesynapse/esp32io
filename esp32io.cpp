@@ -57,19 +57,11 @@ void *read_ESP32_data(void *_connection)
     float tstart, tnow;
     
     float esp_read_ms = 0.0f;
-    size_t esp_signal_n = 0;
+    size_t esp_packet_count = 0;
     float esp_signal_freq = 0.0f;
     uint64_t it = 0;
     float it_ms = 0.0f;
 
-    // accumulation of samples before pushing data to plotter
-    data_t samples[MAX_SAMPLE_COUNT];
-    size_t sample_count = 0;
-
-    // start time of (formatted as float s.ms).
-    gettimeofday(&timeval0, NULL);
-    tstart = timeval0.tv_sec + timeval0.tv_usec * 1e-6;
-    
     // buffer to accumulate read bytes into
     char read_buffer[ESP32_DATA_SZ] = { 0 };
     size_t read_buffer_sz = 0;
@@ -99,19 +91,18 @@ void *read_ESP32_data(void *_connection)
                 // read the data one char at the time
                 char *p = &read_buffer[0];
                 size_t n = 0;
-                // while (n < sizeof(data_t) - __global_packet_id_len  && read_buffer_sz > sizeof(data_t))
                 while (n + __global_packet_id_len < read_buffer_sz)
                 {
                     if (*(p+0) == __global_packet_id[0] && *(p+1) == __global_packet_id[1] && 
                         *(p+2) == __global_packet_id[2] && *(p+3) == __global_packet_id[3])
                     {
-                        // found alignment boundary, moving data
                         LOG_WARNING("Packet misalignment (%ld byte(s))\n", n);
                         break;
                     }
                     n++;
                     p++;
                 }
+                // found alignment boundary, moving data
                 memmove(read_buffer, p, read_buffer_sz - n);
                 read_buffer_sz -= n;
             }
@@ -120,24 +111,16 @@ void *read_ESP32_data(void *_connection)
                 // packet was aligned, so move the data for capturing the next packet
                 read_buffer_sz -= sizeof(data_t);
                 memmove(read_buffer, read_buffer + sizeof(data_t), read_buffer_sz);
-
-                // get timestamp as float s.ms.
-                gettimeofday(&timeval1, NULL);
-                tnow = (timeval1.tv_sec + timeval1.tv_usec * 1e-6) - tstart;
                 
                 // push the data
                 pthread_mutex_lock(&__global_data_mtx);                
                 __global_data_buffer->push(dat);
-                __global_data_time_buffer->push(tnow);
                 // TODO : make this more general somehow?
                 __global_write_data.ival = dat.ival[0];
                 pthread_mutex_unlock(&__global_data_mtx);
             }
 
-            // calculate and store frequency of incoming packets
-            // esp_signal_freq = 1000.0f / esp_read_ms;
-            // esp_read_ms = 0.0f;
-            esp_signal_n++;
+            esp_packet_count++;
 
         }
         
@@ -158,9 +141,9 @@ void *read_ESP32_data(void *_connection)
         // update esp signal frequency once every ~1 second
         if (it_ms > 1000.0f)
         {
-            esp_signal_freq = ((float)esp_signal_n * 1000.0f) / esp_read_ms;
+            esp_signal_freq = ((float)esp_packet_count * 1000.0f) / esp_read_ms;
             esp_read_ms = 0.0f;
-            esp_signal_n = 0;
+            esp_packet_count = 0;
             //
             pthread_mutex_lock(&__global_esp32_signal_freq_mtx);
             __global_esp32_signal_freq = esp_signal_freq;
@@ -273,8 +256,9 @@ int main(int argc, char *argv[])
     __rc.font18 = LoadFontEx("./font/UbuntuMono-Regular.ttf", __rc.font18_size, 0, 0);
     __rc.font24 = LoadFontEx("./font/UbuntuMono-Regular.ttf", __rc.font24_size, 0, 0);
 
-    // plotter, responsible for plotting interleaved serial data into subplots
-    __global_plotter = new Plotter(__global_window_dim, 4, { 2, 2 });
+    // initialize plotter from config file
+    __global_plotter = new Plotter(__global_window_dim, "plotter_config.txt");
+    // __global_plotter = new Plotter(__global_window_dim, 4, { 2, 2 });
 
     //
     initialize_data_arrays();

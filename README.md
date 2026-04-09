@@ -4,7 +4,7 @@ esp32io consists of two main parts; a plotter (utilizing raylib) and a serial co
 
 The data stream is collected into a data array which is the sent to the plotter. The sampling rate (adjustable), and data samples are averaged before plotting for sampling rates < 1. 
 
-The data_t struct in types.h has to be adjusted to match the data sent by the ESP32 before building. A simple configuration (config.txt) is used to setup the plotter correctly. It defines the number of subplots (matching the recieved data_t structure) and dimensions of the raylib window.
+The data_t struct in types.h has to be adjusted to match the data sent by the ESP32 before building. A simple configuration file is used to setup the plotter correctly, or it can be done directly on creation. It defines the number of subplots (matching the recieved data_t structure) and dimensions of the raylib window.
 
 Baudrates that work (don't know why not all of them) with the current setup:
 + 115200
