@@ -15,3 +15,10 @@ Baudrates that work (don't know why not all of them) with the current setup:
 The list is non-exhaustive, it's just the ones I tested. In the testing setup, at a baudrate of 576000, a signal frequency of ~3 KHz is achieved using a simple ESP32 loop with no delays.
 
 Also included in the repo is serial_write, a debugging app, which writes data serially to one of the /dev/pts ttys.
+
+Screenshot
+![alt text](https://github.com/freesynapse/esp32io/blob/main/screenshot.png)
+
+
+
+
