@@ -4,6 +4,8 @@
 
 #include <string.h>
 
+#include "types.h"
+
 //
 template<typename T>
 class array_t
@@ -18,7 +20,7 @@ public:
         data_ptr = new T[_capacity];
         size = 0;
         capacity = _capacity;
-        printf("%s(): array memory allocated (%ld bytes).\n", __func__, sizeof(T) * capacity);
+        // LOG_INFO("%ld elements allocated (%ld bytes).\n", capacity, sizeof(T) * capacity);
     }
 
     //
@@ -41,12 +43,17 @@ public:
             memmove((void *)&data_ptr[0], (void *)&data_ptr[1], sizeof(T) * (size - 1));
             data_ptr[capacity - 1] = _t;
         }
-        // unreachable (!?)
-        else
-            printf("why!?\n");
         
         return capacity;
     }
+
+    //
+    void clear()
+    {
+        memset(data_ptr, 0, sizeof(T) * capacity);
+        size = 0;
+    }
+
     //
     size_t capacity = 0;
     T *data_ptr = nullptr;

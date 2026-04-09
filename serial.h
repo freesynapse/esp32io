@@ -35,13 +35,13 @@ public:
         if (m_buffer)
             delete[] m_buffer;
 
-        printf("Serial connection to '%s' closed.\n", m_port.c_str());
+        LOG_INFO("Serial connection to '%s' closed.\n", m_port.c_str());
     }
 
     //
     int connect()
     {
-        printf("Opening connection to '%s'.\n", m_port.c_str());
+        LOG_INFO("Opening connection to '%s'.\n", m_port.c_str());
         
         m_fd = open(m_port.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
         if (m_fd < 0)

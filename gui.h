@@ -31,7 +31,7 @@ uint32_t get_text_box_val()
 
         if (val > WRITE_INT_MAX)
         {
-            fprintf(stderr, "WARNING: write_data_t.ival > WRITE_INT_MAX (%s)\n", WRITE_INT_MAX_STR);
+            LOG_WARNING("write_data_t.ival > WRITE_INT_MAX (%s)\n", WRITE_INT_MAX_STR);
             val = CLAMP(val, 0, 1024);
             memset(__global_text_input_buffer, '\0', MAX_INPUT_CHARS + 1);
             strcpy(__global_text_input_buffer, WRITE_INT_MAX_STR);
@@ -66,14 +66,17 @@ void draw_help_popup(float _xpos, float _ypos, float _w, float _h, const char *_
 {
     float new_y = draw_window(_xpos, _ypos, _w, _h, _title);
 
-    const char *info = "<UP>     : increase delay by 1\n"
-                       "<DOWN>   : decrease delay by 1\n"
-                       "<+CTRL>  : adjust change by 10\n"
-                       "<+SHIFT> : adjust change by 100\n"
-                       "<ESC>    : close help window";
+    const char *info = "<UP>/<DOWN> : change delay by 1\n"
+                       "<+CTRL>     : change delay by 10\n"
+                       "<+SHIFT>    : change delay by 100\n"
+                       "<RIGHT>     : increase sampling rate\n"
+                       "<LEFT>      : decrease sampling rate\n"
+                       "<ESC>       : close help window";
 
-    Vector2 info_sz = measure_text(info);
-    draw_text(info, { .x = _xpos + 10, .y = new_y + 10 });
+    static Vector2 info_sz = measure_text(info);
+
+    draw_text(info, { .x = _xpos + _w / 2 - info_sz.x / 2, .y = new_y + 10 });
+
 }
 
 
@@ -152,10 +155,10 @@ void handle_popup_input()
             pthread_mutex_lock(&__global_serial_mtx);
             __global_serial_esp32->send(&d, sizeof(d));
             pthread_mutex_unlock(&__global_serial_mtx);
-            printf("INFO : sent %ld byte(s)\n", sizeof(d));
+            LOG_INFO("sent %ld byte(s)\n", sizeof(d));
         }
         else
-            printf("WARNING : buffer empty.\n");
+            LOG_WARNING(buffer empty.\n");
 
         __global_is_showing_popup = false;
     }

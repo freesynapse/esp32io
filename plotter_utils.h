@@ -24,7 +24,7 @@ void __debug_Vector2(Vector2 _v, const char *_prefix="")
 class rc_t
 {
 public:
-    float menu_bar_height   = 30.0f;
+    float menu_bar_height   = 80.0f;
 
     bool draw_subplot_div   = true;
     Color div_color         = { 100, 100, 100, 255 };

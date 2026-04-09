@@ -19,13 +19,13 @@
 #include "gui.h"
 
 //
-#define PTHREAD_MUTEX_INIT(mtx)                                 \
-    do {                                                        \
-        if (pthread_mutex_init(&mtx, NULL) != 0)                \
-        {                                                       \
-            fprintf(stderr, "ERROR: mutext not initialized.\n");\
-            exit(1);                                            \
-        }                                                       \
+#define PTHREAD_MUTEX_INIT(mtx)                     \
+    do {                                            \
+        if (pthread_mutex_init(&mtx, NULL) != 0)    \
+        {                                           \
+            LOG_ERROR("Mutex not initialized.\n");  \
+            exit(1);                                \
+        }                                           \
     } while (0);
 
 
@@ -57,9 +57,14 @@ void *read_ESP32_data(void *_connection)
     float tstart, tnow;
     
     float esp_read_ms = 0.0f;
+    size_t esp_signal_n = 0;
     float esp_signal_freq = 0.0f;
     uint64_t it = 0;
     float it_ms = 0.0f;
+
+    // accumulation of samples before pushing data to plotter
+    data_t samples[MAX_SAMPLE_COUNT];
+    size_t sample_count = 0;
 
     // start time of (formatted as float s.ms).
     gettimeofday(&timeval0, NULL);
@@ -101,7 +106,7 @@ void *read_ESP32_data(void *_connection)
                         *(p+2) == __global_packet_id[2] && *(p+3) == __global_packet_id[3])
                     {
                         // found alignment boundary, moving data
-                        printf("WARNING : packet misalignment (%ld byte(s))\n", n);
+                        LOG_WARNING("Packet misalignment (%ld byte(s))\n", n);
                         break;
                     }
                     n++;
@@ -113,38 +118,50 @@ void *read_ESP32_data(void *_connection)
             else
             {
                 // packet was aligned, so move the data for capturing the next packet
-                // printf("aligned : read_buffer_sz %ld -> %ld\n", read_buffer_sz, read_buffer_sz - sizeof(data_t));
                 read_buffer_sz -= sizeof(data_t);
                 memmove(read_buffer, read_buffer + sizeof(data_t), read_buffer_sz);
 
                 // get timestamp as float s.ms.
                 gettimeofday(&timeval1, NULL);
                 tnow = (timeval1.tv_sec + timeval1.tv_usec * 1e-6) - tstart;
-                // push the data 
-                pthread_mutex_lock(&__global_data_mtx);
+                
+                // push the data
+                //if (sample_count >= __global_sample_count)
+                //{
+                //    data_t dat_acc = { 0 };
+                //    memcpy(dat_acc.id, __global_packet_id, __global_packet_id_len);
+                //    for (size_t i = 0; i < sample_count; i++)
+                //    {
+                //        dat_acc.fval[0]
+                //    }
+                pthread_mutex_lock(&__global_data_mtx);                
                 __global_data_buffer->push(dat);
                 __global_data_time_buffer->push(tnow);
-                
                 // TODO : make this more general somehow?
                 __global_write_data.ival = dat.ival[0];
-                
                 pthread_mutex_unlock(&__global_data_mtx);
+                //}
+                //else
+                //{
+                //    samples[sample_count++] = dat;
+                //}
 
             }
 
             // calculate and store frequency of incoming packets
-            esp_signal_freq = 1000.0f / esp_read_ms;
-            esp_read_ms = 0.0f;
+            // esp_signal_freq = 1000.0f / esp_read_ms;
+            // esp_read_ms = 0.0f;
+            esp_signal_n++;
 
         }
         
-        usleep(20);
+        usleep(10);
 
         pthread_mutex_lock(&__global_esp32_signal_mtx);
         if (__global_esp32_disconnect == true)
         {
-           printf("%s(): exit signal recieved\n", __func__);
-           break;
+            LOG_INFO("Exit signal recieved.\n");
+            break;
         }
         pthread_mutex_unlock(&__global_esp32_signal_mtx);
 
@@ -155,6 +172,10 @@ void *read_ESP32_data(void *_connection)
         // update esp signal frequency once every ~1 second
         if (it_ms > 1000.0f)
         {
+            esp_signal_freq = ((float)esp_signal_n * 1000.0f) / esp_read_ms;
+            esp_read_ms = 0.0f;
+            esp_signal_n = 0;
+            //
             pthread_mutex_lock(&__global_esp32_signal_freq_mtx);
             __global_esp32_signal_freq = esp_signal_freq;
             pthread_mutex_unlock(&__global_esp32_signal_freq_mtx);
@@ -192,7 +213,7 @@ void draw()
 
     if (__global_is_showing_popup)
     {
-        static Vector2 dim = { 400, 400 };
+        static Vector2 dim = { 500, 400 };
         Vector2 pos = { .x = __global_window_dim.x / 2 - dim.x / 2, 
                         .y = __global_window_dim.y / 2 - dim.y / 2 };
         draw_help_popup(pos.x, pos.y, dim.x, dim.y, "-- HELP --");
@@ -202,12 +223,33 @@ void draw()
 }
 
 //----------------------------------------------------------------------------------------
+void initialize_data_arrays()
+{
+    // Dimension the data buffers (written under mutex lock from the serial thread)
+    // the max size of the buffers is equal to the size (in pixels) of one of the 
+    // Plotter's subplots. The size is also adjusted for the __global_sample_count; 
+    // all data are captured from serial in data_t packets and the Plotter handles 
+    // averaging of the signal based on the sampling rate / count.
+    
+    size_t sz = __global_plotter->get_subplot_vertex_count() * __global_sample_count;
+
+    pthread_mutex_lock(&__global_data_mtx);
+
+    if (__global_data_buffer != nullptr) delete __global_data_buffer;
+    if (__global_data_buffer_cpy != nullptr) delete __global_data_buffer_cpy;
+    if (__global_data_time_buffer != nullptr) delete __global_data_time_buffer;
+
+    __global_data_buffer = new array_t<data_t>(sz);
+    __global_data_buffer_cpy = new array_t<data_t>(sz);
+    __global_data_time_buffer = new array_t<float>(sz);
+
+    pthread_mutex_unlock(&__global_data_mtx);
+
+}
+//----------------------------------------------------------------------------------------
 int main(int argc, char *argv[])
 {
-    // asserts for data_t field sizes
-    assert(sizeof(float) == 4);
-    assert(sizeof(uint32_t) == 4);
-
+    //
     std::string port = "/dev/ttyUSB0";
     if (argc > 1)
         port = std::string(argv[1]);
@@ -219,10 +261,10 @@ int main(int argc, char *argv[])
     PTHREAD_MUTEX_INIT(__global_esp32_signal_freq_mtx);
 
     // initialize serial connection to ESP32
-    __global_serial_esp32 = new SerialESP32(port.c_str(), ESP32_DATA_SZ);
+    __global_serial_esp32 = new SerialESP32(port.c_str(), ESP32_DATA_SZ, B576000);
     if (__global_serial_esp32->connect() != RETURN_SUCCESS)
     {
-        fprintf(stderr, "ERROR %d: opening %s: %s\n", errno, port.c_str(), strerror (errno));
+        LOG_ERROR("%d: opening %s: %s\n", errno, port.c_str(), strerror (errno));
         exit(1);
     }
 
@@ -237,7 +279,7 @@ int main(int argc, char *argv[])
     __global_window_dim.x = 1600;//GetScreenWidth();
     __global_window_dim.y = 900;//GetScreenHeight();
     SetWindowPosition(GetScreenWidth(), 0);
-    printf("%d %d\n", GetScreenWidth(), GetScreenHeight());
+    LOG_INFO("Window size: %d x %d\n", GetScreenWidth(), GetScreenHeight());
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
     // load fonts
@@ -245,22 +287,10 @@ int main(int argc, char *argv[])
     __rc.font24 = LoadFontEx("./font/UbuntuMono-Regular.ttf", __rc.font24_size, 0, 0);
 
     // plotter, responsible for plotting interleaved serial data into subplots
-    __global_plotter = new Plotter(__global_window_dim, 
-                                   4, 
-                                   { 2, 2 },
-                                   {"variable_0", 
-                                    "variable_1", 
-                                    "variable_2", 
-                                    "variable_3"});
+    __global_plotter = new Plotter(__global_window_dim, 4, { 2, 2 });
 
-    // dimension the data buffers (written under mutex lock from the serial thread)
-    // the max size of the buffers is equal to the size (in pixels) of one of the 
-    // Plotter's subplots.
     //
-    size_t subplot_width = __global_plotter->get_subplot_vertex_count();
-    __global_data_buffer = new array_t<data_t>((size_t)subplot_width);
-    __global_data_buffer_cpy = new array_t<data_t>((size_t)subplot_width);
-    __global_data_time_buffer = new array_t<float>((size_t)subplot_width);
+    initialize_data_arrays();
     
     // start ESP32 serial reading
     pthread_t esp32_read_thread_id;
@@ -297,6 +327,20 @@ int main(int argc, char *argv[])
             __global_write_data.ival = MAX(0, __global_write_data.ival);
             __global_serial_esp32->send(&__global_write_data, sizeof(write_data_t));
             pthread_mutex_unlock(&__global_serial_mtx);
+        }
+
+        // adjust sampling count/rate
+        else if (IsKeyPressed(KEY_RIGHT) && __global_sample_count > MIN_SAMPLE_COUNT)
+        {
+            __global_sample_count -= 1.0f;
+            __global_sample_count = CLAMP(__global_sample_count, MIN_SAMPLE_COUNT, MAX_SAMPLE_COUNT);
+            initialize_data_arrays();
+        }
+        else if (IsKeyPressed(KEY_LEFT) && __global_sample_count < MAX_SAMPLE_COUNT)
+        {
+            __global_sample_count += 1.0f;
+            __global_sample_count = CLAMP(__global_sample_count, MIN_SAMPLE_COUNT, MAX_SAMPLE_COUNT);
+            initialize_data_arrays();
         }
 
         //

@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 
     int fd = open("/dev/ptmx", O_RDWR | O_NOCTTY);
     if (fd == -1) {
-        fprintf(stderr, "Error: %s\n", strerror(errno));
+        LOG_ERROR("%s\n", strerror(errno));
         return 1;
     }
 
@@ -36,9 +36,8 @@ int main(int argc, char** argv)
     unlockpt(fd);
 
     const char *pts_name = ptsname(fd);
-    fprintf(stdout, "ptsname: %s\n", pts_name);
-    fprintf(stdout, "data size: %ld\n", sizeof(data_t));
-
+    LOG_INFO("ptsname: %s\n", pts_name);
+    LOG_INFO("Data size: %ld\n", sizeof(data_t));
 
     // serial port parameters
     struct termios newtio;

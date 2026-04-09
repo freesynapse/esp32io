@@ -134,22 +134,30 @@ public:
         }
 
         // copy data
-        m_vertex_count = _n;
+        m_vertex_count = _n / __global_sample_count;
         for (size_t i = 0; i < m_vertex_count; i++)
         {
             m_vertices[i].x = (float)i;
-            
-            // address of the i:th element of the _data array
-            data_t *data_at_idx = _data + i;
-            
-            // pointer tricks
-            m_vertices[i].y = *(T *)((char *)(data_at_idx) + 4 + m_subplot_id * 4);
-            //                             ^            ^    ^         ^
-            // treat data_t as char for pointer math    |    |         |
-            //              address of i:th array element    |         |
-            //                    skip the first 4 bytes (char[4])     |
-            // since all elements are 4 bytes (float and uint32_t), id * 4 will 
-            // correspond to the id:th number in data_t
+
+            float y = 0.0f;
+            for (size_t j = 0; j < __global_sample_count; j++)
+            {
+                // address of the i:th element of the _data array
+                data_t *data_at_idx = _data + (i * (size_t)__global_sample_count) + j;
+                
+                // pointer tricks with accumulation of __global_sample_count samples
+                y += *(T *)((char *)(data_at_idx) + 4 + m_subplot_id * 4);
+                //              ^      ^            ^         ^
+                // data_t as char      |            |         |
+                // for pointer math    |            |         |
+                //  address of i:th array element   |         |
+                //      skip the first 4 bytes (char[4])      |
+                //        since all elements are 4 bytes (float and uint32_t), id * 4 will 
+                //        correspond to the i:th number in data_t
+            }
+
+            // calculate mean of last __global_sample_count samples
+            m_vertices[i].y = y / __global_sample_count;
 
             // store range
             m_vertex_lim.x = MIN(m_vertex_lim.x, m_vertices[i].y);
@@ -297,20 +305,19 @@ class Plotter
 {
 public:
     //
-    Plotter(Vector2 _win_dims, size_t _n_params, Vector2 _subplots_shape, const std::vector<std::string> &_titles)
+    Plotter(Vector2 _win_dims, size_t _n_params, Vector2 _subplots_shape, const std::vector<std::string> &_titles={})
     {
         m_window_dims = _win_dims;
         m_param_count = _n_params;
         m_subplots_shape = _subplots_shape;
 
         std::vector<std::string> titles = _titles;
-        if (titles.size() != _n_params)
+        if (titles.size() != _n_params && __rc.draw_title == true)
         {
-            printf("WARNING: invalid size of std::vector<std::string> &_titles, omitting.\n");
+            LOG_WARNING("Invalid size of std::vector<std::string> &_titles, auto-generating.\n");
             titles.clear();
             for (size_t i = 0; i < m_param_count; i++)
-                titles.push_back("");
-            __rc.draw_title = false;
+                titles.push_back("variable_" + std::to_string(i));
         }
 
         // make room for menu bar
@@ -323,10 +330,8 @@ public:
         // create subplots
         for (int j = 0; j < _subplots_shape.y; j++)
         {
-            // printf("j = %d\n", j);
             for (int i = 0; i < _subplots_shape.x; i++)
             {
-                // printf("i = %d\n", i);
                 int idx = j * _subplots_shape.x + i;
                 Vector2 subplot_offset = 
                 {
@@ -358,8 +363,6 @@ public:
             case UINT32: m_subplots[i]->copy_data_to_vertices<uint32_t>(_data, _element_count); break;
             case INT32:  m_subplots[i]->copy_data_to_vertices<int32_t>(_data, _element_count); break;
             }
-           
-            
         }
     }
 
@@ -407,11 +410,15 @@ public:
             // Vector2 info_sz = measure_text(info_text);
             draw_text(info_text, { .x = 5.0f, .y = m_window_dims.y - __rc.menu_bar_height + 5.0f });
 
-            char buffer[64] = { 0 };
+            char buffer[128] = { 0 };
             pthread_mutex_lock(&__global_esp32_signal_freq_mtx);
-            sprintf(buffer, "signal: %.2f Hz", __global_esp32_signal_freq);
+            sprintf(buffer, "signal:  %7.2f Hz\nplotter: %7.2f Hz\nsrate:   %7.2f   ", 
+                    __global_esp32_signal_freq,
+                    __global_esp32_signal_freq / __global_sample_count,
+                    1.0f / __global_sample_count);
             pthread_mutex_unlock(&__global_esp32_signal_freq_mtx);
             Vector2 sz = measure_text(buffer);
+            if (__rc.menu_bar_height > sz.y + 10.0f) __rc.menu_bar_height = sz.y + 10.0f;
             draw_text(buffer, { .x = m_window_dims.x - sz.x - 5.0f, .y = m_window_dims.y - __rc.menu_bar_height + 5.0f });
         }
 

@@ -5,7 +5,7 @@
 |
 ----------------------------------------------------------------------------------------*/
 
-#define OUT     4
+#define PIN_OUT 4
 #define C_READ
 
 // cmd key codes
@@ -38,9 +38,9 @@ read_data_t input_data = { 0 };
 //
 void setup()
 {
-  Serial.begin(115200);
-  // initialize GPIO 2 as an output.
-  pinMode(OUT, OUTPUT);
+  Serial.begin(576000);
+  
+  pinMode(PIN_OUT, OUTPUT);
 
   strcpy(dat.id, "ESPD");
   dat.fval[0] = 50.0f;
@@ -49,7 +49,7 @@ void setup()
   dat.ival[1] = 0;
 }
 
-// the loop function runs over and over again forever
+//
 void loop()
 {
   // read from usb
@@ -67,7 +67,7 @@ void loop()
     toggle_OUT = !toggle_OUT;
 
     n = 0;
-    digitalWrite(OUT, (uint8_t)toggle_OUT);
+    digitalWrite(PIN_OUT, (uint8_t)toggle_OUT);
   }
   
   dat.fval[0] = 50.0f + delta * 50.0f + baseline;
@@ -76,7 +76,7 @@ void loop()
   uint8_t *bytes = (uint8_t *)&dat;
   Serial.write(bytes, DATA_SZ);
   
-  delay(10);
+  delay(2);
 
   n++;
 

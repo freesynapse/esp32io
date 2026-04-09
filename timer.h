@@ -5,6 +5,8 @@
 #include <chrono>
 #include <stdio.h>
 
+#include "types.h"
+
 // scoped-based timer class
 class Timer
 {
@@ -36,7 +38,7 @@ public:
         double ms = duration * 0.001;
 
         if (m_printResult)
-            printf("%s: %.3f ms.\n", m_caller, ms);
+            LOG_INFO("%s: %.3f ms.\n", m_caller, ms);
             
     }
 
