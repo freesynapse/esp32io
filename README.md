@@ -7,10 +7,10 @@ The data stream is collected into a data array which is the sent to the plotter.
 The data_t struct in types.h has to be adjusted to match the data sent by the ESP32 before building. A simple configuration (config.txt) is used to setup the plotter correctly. It defines the number of subplots (matching the recieved data_t structure) and dimensions of the raylib window.
 
 Baudrates that work (don't know why not all of them) with the current setup:
-    - 115200
-    - 460800
-    - 576000
-    - 921600
++ 115200
++ 460800
++ 576000
++ 921600
 
 The list is non-exhaustive, it's just the ones I tested. In the testing setup, at a baudrate of 576000, a signal frequency of ~3 KHz is achieved using a simple ESP32 loop with no delays.
 
